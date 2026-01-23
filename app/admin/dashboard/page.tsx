@@ -1,0 +1,252 @@
+'use client';
+
+import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { createClient } from '@/libs/supabase';
+import { 
+  BarChart3, Eye, FileText, Layers, 
+  ArrowUpRight, Calendar, Loader2, Plus 
+} from 'lucide-react';
+
+export default function DashboardPage() {
+  const supabase = createClient();
+  const [loading, setLoading] = useState(true);
+  
+  // เก็บข้อมูลสถิติ
+  const [stats, setStats] = useState({
+    totalPosts: 0,
+    totalViews: 0,
+    totalCategories: 0,
+  });
+
+  // เก็บข้อมูลกราฟ (หมวดหมู่)
+  const [categoryStats, setCategoryStats] = useState<{name: string, count: number, percent: number}[]>([]);
+  
+  // เก็บโพสต์ล่าสุด 5 อัน
+  const [recentPosts, setRecentPosts] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      setLoading(true);
+
+      try {
+        // 1. ดึงข้อมูล Posts ทั้งหมด
+        const { data: allPosts, error: postsError } = await supabase
+          .from('posts')
+          .select('id, category_id, meta_data, created_at, title, slug, categories(name)')
+          .order('created_at', { ascending: false });
+
+        // 2. ดึงข้อมูล Categories ทั้งหมด
+        const { data: allCategories, error: catError } = await supabase
+          .from('categories')
+          .select('id, name');
+
+        if (postsError || catError) throw new Error('Failed to fetch data');
+
+        // --- คำนวณตัวเลข (Calculation Logic) ---
+        
+        // A. ยอดรวม Posts
+        const postCount = allPosts?.length || 0;
+
+        // B. ยอดรวม Views (แกะจาก JSONB meta_data)
+        const viewCount = allPosts?.reduce((sum : number, post: { meta_data: { views: any; }; }) => {
+          return sum + (post.meta_data?.views || 0);
+        }, 0) || 0;
+
+        // C. คำนวณสัดส่วนหมวดหมู่ (Category Distribution)
+        const catMap = new Map();
+        
+        // 🛠️ แก้ไขตรงนี้: ใส่ :any เพื่อแก้ Error TypeScript
+        allPosts?.forEach((post: any) => {
+            let catName = 'Uncategorized';
+            
+            // เช็คว่า categories มาเป็น Array หรือ Object เพื่อความชัวร์
+            if (Array.isArray(post.categories) && post.categories.length > 0) {
+                catName = post.categories[0].name; // กรณีเป็น Array
+            } else if (post.categories && typeof post.categories === 'object') {
+                catName = post.categories.name;    // กรณีเป็น Object
+            }
+
+            catMap.set(catName, (catMap.get(catName) || 0) + 1);
+        });
+
+        // แปลง Map เป็น Array เพื่อวนลูปแสดงผล
+        const catStatsArray = Array.from(catMap.entries()).map(([name, count]) => ({
+            name,
+            count,
+            percent: Math.round((count / postCount) * 100) || 0
+        })).sort((a, b) => b.count - a.count); // เรียงจากมากไปน้อย
+
+        // --- อัปเดต State ---
+        setStats({
+          totalPosts: postCount,
+          totalViews: viewCount,
+          totalCategories: allCategories?.length || 0,
+        });
+        
+        setCategoryStats(catStatsArray);
+        setRecentPosts(allPosts?.slice(0, 5) || []); 
+
+      } catch (error) {
+        console.error('Error:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex h-[80vh] items-center justify-center text-stone-400 gap-2">
+        <Loader2 className="animate-spin" /> Loading Dashboard...
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-6xl mx-auto pb-20 space-y-8">
+      
+      {/* --- HEADER --- */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-black text-stone-800 tracking-tight">Dashboard</h1>
+          <p className="text-stone-500">Welcome back! Here's what's happening today.</p>
+        </div>
+        <div className="flex items-center gap-2 text-sm font-medium text-stone-500 bg-white px-4 py-2 rounded-full shadow-sm border border-stone-100">
+          <Calendar size={16} className="text-[#C5A059]" />
+          {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+        </div>
+      </div>
+
+      {/* --- STATS CARDS --- */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <StatCard 
+          title="Total Posts" 
+          value={stats.totalPosts} 
+          icon={<FileText size={24} className="text-white" />}
+          color="bg-stone-800"
+          subtext="All published articles"
+        />
+        <StatCard 
+          title="Total Views" 
+          value={stats.totalViews.toLocaleString()} 
+          icon={<Eye size={24} className="text-white" />}
+          color="bg-[#C5A059]"
+          subtext="Across all content"
+        />
+        <StatCard 
+          title="Categories" 
+          value={stats.totalCategories} 
+          icon={<Layers size={24} className="text-stone-600" />}
+          color="bg-stone-200"
+          textColor="text-stone-800"
+          subtext="Active topics"
+        />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        {/* --- LEFT: RECENT POSTS (2/3 width) --- */}
+        <div className="lg:col-span-2 bg-white rounded-2xl border border-stone-200 shadow-sm p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-lg font-bold text-stone-800 flex items-center gap-2">
+              <ArrowUpRight size={20} className="text-[#C5A059]" /> Recent Activity
+            </h2>
+            <Link href="/admin/posts" className="text-xs font-bold text-stone-500 hover:text-[#C5A059] transition-colors">
+              View All
+            </Link>
+          </div>
+
+          <div className="space-y-4">
+            {recentPosts.length === 0 ? (
+              <div className="text-center text-stone-400 py-10">No posts yet. Start writing!</div>
+            ) : (
+              recentPosts.map((post: any) => (
+                <div key={post.id} className="flex items-center justify-between p-3 rounded-xl hover:bg-stone-50 transition-colors group">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-lg bg-stone-100 flex items-center justify-center text-stone-400 group-hover:bg-[#C5A059] group-hover:text-white transition-colors">
+                      <FileText size={18} />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-stone-800 text-sm line-clamp-1">{post.title}</h3>
+                      <p className="text-xs text-stone-400 flex items-center gap-2">
+                        {new Date(post.created_at).toLocaleDateString()} • 
+                        {/* 🛠️ แก้ไขการแสดงผลชื่อ Category ตรงนี้ด้วย */}
+                        {Array.isArray(post.categories) ? post.categories[0]?.name : post.categories?.name || 'Uncategorized'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 text-xs font-bold text-stone-500 bg-stone-100 px-2 py-1 rounded">
+                    <Eye size={12} /> {post.meta_data?.views || 0}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+          
+          <Link href="/admin/create" className="mt-6 flex items-center justify-center gap-2 w-full py-3 rounded-xl border-2 border-dashed border-stone-200 text-stone-400 hover:border-[#C5A059] hover:text-[#C5A059] transition-all font-bold text-sm">
+            <Plus size={16} /> Create New Post
+          </Link>
+        </div>
+
+        {/* --- RIGHT: CATEGORY DISTRIBUTION (1/3 width) --- */}
+        <div className="bg-white rounded-2xl border border-stone-200 shadow-sm p-6">
+          <h2 className="text-lg font-bold text-stone-800 flex items-center gap-2 mb-6">
+            <BarChart3 size={20} className="text-[#C5A059]" /> Content Mix
+          </h2>
+          
+          <div className="space-y-5">
+            {categoryStats.map((cat, index) => (
+              <div key={index}>
+                <div className="flex justify-between text-xs font-bold text-stone-600 mb-1">
+                  <span>{cat.name}</span>
+                  <span>{cat.count} posts</span>
+                </div>
+                <div className="w-full h-2 bg-stone-100 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-stone-800 rounded-full" 
+                    style={{ width: `${cat.percent}%`, opacity: 0.8 }}
+                  ></div>
+                </div>
+              </div>
+            ))}
+
+            {categoryStats.length === 0 && (
+               <div className="text-center text-stone-400 text-sm">No data available</div>
+            )}
+          </div>
+          
+          <div className="mt-8 p-4 bg-stone-50 rounded-xl text-xs text-stone-500 leading-relaxed">
+            <span className="font-bold text-stone-800">Pro Tip:</span> Diversify your content categories to reach a wider audience.
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
+// Component ย่อยสำหรับ Card
+function StatCard({ title, value, icon, color, textColor = "text-white", subtext }: any) {
+  return (
+    <div className={`${color} rounded-2xl p-6 shadow-lg relative overflow-hidden group hover:scale-[1.02] transition-transform duration-300`}>
+      <div className="relative z-10 flex justify-between items-start">
+        <div>
+          <p className={`text-xs font-bold uppercase tracking-wider opacity-70 ${textColor}`}>{title}</p>
+          <h3 className={`text-4xl font-black mt-2 ${textColor}`}>{value}</h3>
+          <p className={`text-xs mt-2 opacity-60 ${textColor}`}>{subtext}</p>
+        </div>
+        <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
+          {icon}
+        </div>
+      </div>
+      
+      {/* Texture Background */}
+      <div className="absolute -right-6 -bottom-6 opacity-10 rotate-12 transform scale-150">
+        {icon}
+      </div>
+    </div>
+  );
+}

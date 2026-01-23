@@ -1,0 +1,47 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+
+/* ... โค้ดเดิม ... */
+
+@layer components {
+  /* สไตล์สำหรับกล่อง Pro Tip ใน Editor และหน้าอ่านบทความ */
+  .pro-tip-box {
+    @apply my-6 p-6 bg-[#F5F5F4] rounded-xl border-l-4 border-[#C5A059] relative;
+  }
+
+  /* ใส่หัวข้อ "Pro Tip" อัตโนมัติ (Optional: ถ้าอยากให้มีหัวข้อทุกครั้ง) */
+  .pro-tip-box::before {
+    content: '💡 Pro Tip';
+    @apply block font-bold text-[#C5A059] mb-2 uppercase tracking-wide text-xs;
+  }
+}
+
+/* ปรับแต่ง Prose ให้แสดงผลกล่องนี้สวยๆ */
+.prose .pro-tip-box p {
+  @apply my-0 text-stone-600 italic;
+}
