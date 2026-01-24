@@ -2,15 +2,16 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { createClient } from '@/libs/supabase'; // 👈 เรียกใช้ Supabase
+import { useSearchParams } from 'next/navigation';
+import { createClient } from '@/libs/supabase';
 import { BookOpen, Dumbbell, Star, ChevronRight, Terminal, Clock, Loader2 } from 'lucide-react';
 
 // --- 1. POST CARD COMPONENT ---
+// (Component ย่อยสำหรับแสดงการ์ดแต่ละใบ)
 const PostCard = ({ post }: { post: any }) => {
-  // ดึง slug ของ category มาเช็คประเภท (แก้ให้ตรงกับ DB ของคุณ)
-  // สมมติ DB slug คือ: 'calisthenics', 'reading', 'coding'
   const categorySlug = post.categories?.slug || '';
-
+  
+  // เช็คประเภทเพื่อเลือก icon/สี
   const isWorkout = categorySlug.includes('workout') || categorySlug.includes('calisthenics') || categorySlug.includes('fit');
   const isCode = categorySlug.includes('code') || categorySlug.includes('dev') || categorySlug.includes('program');
   const isBook = categorySlug.includes('book') || categorySlug.includes('read');
@@ -25,13 +26,13 @@ const PostCard = ({ post }: { post: any }) => {
             <img 
               src={post.cover_image} 
               alt={post.title} 
-              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-stone-300">No Image</div>
           )}
           
-          {/* Floating Category Badge */}
+          {/* Badge มุมขวาบน */}
           <div className="absolute top-4 right-4 bg-white/95 backdrop-blur-sm px-3 py-1.5 rounded-full text-xs font-bold shadow-sm z-10">
             {isWorkout && <span className="text-rose-500 flex items-center gap-1"><Dumbbell size={12}/> Workout</span>}
             {isCode && <span className="text-indigo-600 flex items-center gap-1"><Terminal size={12}/> Programming</span>}
@@ -42,13 +43,13 @@ const PostCard = ({ post }: { post: any }) => {
 
         {/* Content Body */}
         <div className="p-4 pt-5 flex flex-col flex-grow">
+          {/* Meta Top: Date | Difficulty */}
           <div className="flex items-center gap-2 mb-3">
             <span className="text-[10px] font-bold tracking-wider uppercase text-stone-400">
               {new Date(post.created_at).toLocaleDateString('en-GB')}
             </span>
             <div className="h-px w-4 bg-stone-200"></div>
             <span className="text-[10px] font-bold tracking-wider uppercase text-stone-400">
-              {/* ดึงข้อมูลจาก Meta Data (JSONB) */}
               {post.meta_data?.difficulty || post.meta_data?.author || 'General'}
             </span>
           </div>
@@ -61,9 +62,10 @@ const PostCard = ({ post }: { post: any }) => {
             {post.excerpt}
           </p>
 
+          {/* Bottom Meta & Arrow */}
           <div className="flex items-center justify-between border-t border-stone-50 pt-4 mt-auto">
             <div className="flex items-center gap-2">
-              {/* แสดง Badge ตามเงื่อนไข Meta Data */}
+              {/* แสดงข้อมูลเฉพาะตามหมวดหมู่ */}
               {post.meta_data?.duration && (
                 <span className="bg-rose-50 text-rose-600 px-2 py-1 rounded-lg text-xs font-semibold flex items-center gap-1">
                   <Clock size={12} /> {post.meta_data.duration}
@@ -79,6 +81,9 @@ const PostCard = ({ post }: { post: any }) => {
                   <Terminal size={12} /> {post.meta_data.tech_stack.split(',')[0]}
                 </span>
               )}
+              {!post.meta_data?.duration && !post.meta_data?.rating && !post.meta_data?.tech_stack && (
+                 <span className="text-xs text-stone-400 font-medium">Read Article</span>
+              )}
             </div>
             
             <div className="w-8 h-8 rounded-full bg-stone-50 flex items-center justify-center text-stone-400 group-hover:bg-[#C5A059] group-hover:text-white transition-all">
@@ -91,27 +96,26 @@ const PostCard = ({ post }: { post: any }) => {
   );
 };
 
-// --- 2. MAIN PAGE ---
+// --- 2. MAIN HOME PAGE ---
 export default function HomePage() {
   const supabase = createClient();
+  
+  // รับค่า Search Query จาก URL (ที่ส่งมาจาก Navbar)
+  const searchParams = useSearchParams();
+  const queryText = (searchParams.get('q') || '').toLowerCase(); // แปลงเป็นตัวพิมพ์เล็กเพื่อค้นหาง่ายขึ้น
+  
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('all');
+  const [filter, setFilter] = useState('all'); // State สำหรับ Tab Filter
 
-  // 1. Fetch Data จาก Supabase
+  // 1. Fetch Posts (ดึงมาทั้งหมดทีเดียว แล้วค่อย Filter ในเครื่อง)
   useEffect(() => {
     const fetchPosts = async () => {
       setLoading(true);
       const { data, error } = await supabase
         .from('posts')
-        .select(`
-          *,
-          categories (
-            name,
-            slug
-          )
-        `)
-        .order('created_at', { ascending: false }); // โพสต์ใหม่สุดขึ้นก่อน
+        .select(`*, categories (name, slug)`) // ดึงชื่อหมวดหมู่มาด้วย
+        .order('created_at', { ascending: false });
 
       if (error) {
         console.error('Error fetching posts:', error);
@@ -122,16 +126,25 @@ export default function HomePage() {
     };
 
     fetchPosts();
-  }, []);
+  }, []); 
 
-  // 2. Logic การกรอง (Filter)
-  const filteredPosts = filter === 'all' 
-    ? posts 
-    : posts.filter(post => {
-        // เช็คว่า slug ของหมวดหมู่ ตรงกับ filter ที่เลือกไหม (partial match)
-        const catSlug = post.categories?.slug || '';
-        return catSlug.includes(filter);
-      });
+  // 2. Logic การกรองข้อมูล (Filter Logic)
+  const filteredPosts = posts.filter(post => {
+    // เงื่อนไข A: ต้องตรงกับ Tab ที่เลือก (Workout/Read/Code/All)
+    const catSlug = post.categories?.slug || '';
+    const matchesTab = filter === 'all' || catSlug.includes(filter);
+
+    // เงื่อนไข B: ต้องตรงกับคำค้นหา (ถ้ามี)
+    // ค้นหาใน: Title OR Excerpt OR Category Name
+    const catName = post.categories?.name || '';
+    const matchesSearch = queryText === '' || 
+                          post.title.toLowerCase().includes(queryText) || 
+                          (post.excerpt || '').toLowerCase().includes(queryText) ||
+                          catName.toLowerCase().includes(queryText);
+
+    // ต้องผ่านทั้ง A และ B ถึงจะแสดงผล
+    return matchesTab && matchesSearch;
+  });
 
   return (
     <div className="min-h-screen bg-[#FAFAF9] font-sans selection:bg-[#C5A059]/20 selection:text-[#8A6E3E]">
@@ -141,7 +154,7 @@ export default function HomePage() {
         <div className="max-w-4xl mx-auto text-center">
           
           <div className="inline-block mb-6 px-4 py-1.5 rounded-full bg-white border border-[#C5A059]/20 shadow-sm text-xs font-bold text-[#C5A059] tracking-widest uppercase animate-in fade-in slide-in-from-bottom-4 duration-700">
-             Scale & Skill
+              Scale & Skill
           </div>
 
           <h1 className="text-5xl md:text-7xl font-extrabold text-stone-900 mb-8 tracking-tight leading-[1.1] uppercase animate-in fade-in slide-in-from-bottom-5 duration-700 delay-100">
@@ -163,14 +176,13 @@ export default function HomePage() {
           </p>
           
           {/* Filter Tabs */}
-          {/* ⚠️ ต้องตั้งค่า id ให้ตรงกับ slug ใน Database ของคุณ */}
           <div className="flex justify-center animate-in fade-in zoom-in duration-500 delay-500">
             <div className="inline-flex flex-wrap justify-center gap-1 p-1.5 bg-white rounded-full shadow-sm border border-stone-100">
               {[
                 { id: 'all', label: 'All Stories' },
-                { id: 'calisthenics', label: 'Workout' }, // แก้ id ให้ตรงกับ slug ใน DB
-                { id: 'read', label: 'Library' },         // แก้ id ให้ตรงกับ slug ใน DB (เช่น 'reading')
-                { id: 'code', label: 'Programming' }      // แก้ id ให้ตรงกับ slug ใน DB (เช่น 'coding')
+                { id: 'calisthenics', label: 'Workout' }, // ⚠️ เช็ค slug ให้ตรง DB
+                { id: 'read', label: 'Library' },         // ⚠️ เช็ค slug ให้ตรง DB
+                { id: 'code', label: 'Programming' }      // ⚠️ เช็ค slug ให้ตรง DB
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -193,6 +205,21 @@ export default function HomePage() {
       {/* --- CONTENT GRID --- */}
       <main className="max-w-6xl mx-auto px-4 pb-24">
         
+        {/* Search Result Header (แสดงเมื่อมีการพิมพ์ค้นหา) */}
+        {queryText && !loading && (
+           <div className="mb-8 text-center animate-in fade-in slide-in-from-bottom-2">
+             <h2 className="text-xl font-bold text-stone-800">
+               Search results for: <span className="text-[#C5A059]">"{queryText}"</span>
+             </h2>
+             <button 
+               onClick={() => window.location.href = '/'} 
+               className="mt-2 text-xs text-stone-400 hover:text-[#C5A059] underline"
+             >
+               Clear Search
+             </button>
+           </div>
+        )}
+
         {loading ? (
           // Loading State
           <div className="flex flex-col items-center justify-center py-20 text-stone-400 gap-3">
@@ -200,6 +227,7 @@ export default function HomePage() {
             <p>Loading inspiration...</p>
           </div>
         ) : (
+          // Post Grid
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-10">
             {filteredPosts.map((post) => (
               <PostCard key={post.id} post={post} />
@@ -207,10 +235,14 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* Empty State */}
+        {/* Empty State (ไม่เจอข้อมูล) */}
         {!loading && filteredPosts.length === 0 && (
           <div className="text-center py-20 opacity-50 border-2 border-dashed border-stone-200 rounded-3xl mx-auto max-w-lg">
-            <p className="text-stone-400">No stories found in this category yet.</p>
+            <p className="text-stone-400">
+              {queryText 
+                ? `No stories found matching "${queryText}".` 
+                : "No stories found in this category yet."}
+            </p>
           </div>
         )}
       </main>
