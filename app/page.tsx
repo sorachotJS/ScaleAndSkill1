@@ -1,13 +1,13 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/libs/supabase';
 import { BookOpen, Dumbbell, Star, ChevronRight, Terminal, Clock, Loader2 } from 'lucide-react';
 
 // --- 1. POST CARD COMPONENT ---
-// (Component ย่อยสำหรับแสดงการ์ดแต่ละใบ)
+// แสดงผลการ์ดแต่ละใบ โดยเปลี่ยน icon ตามหมวดหมู่
 const PostCard = ({ post }: { post: any }) => {
   const categorySlug = post.categories?.slug || '';
   
@@ -96,25 +96,26 @@ const PostCard = ({ post }: { post: any }) => {
   );
 };
 
-// --- 2. MAIN HOME PAGE ---
-export default function HomePage() {
+// --- 2. HOME CONTENT LOGIC ---
+// แยกส่วน Logic ออกมาเพื่อห่อด้วย Suspense
+const HomeContent = () => {
   const supabase = createClient();
   
-  // รับค่า Search Query จาก URL (ที่ส่งมาจาก Navbar)
+  // รับค่า Search Query จาก URL (Case Insensitive)
   const searchParams = useSearchParams();
-  const queryText = (searchParams.get('q') || '').toLowerCase(); // แปลงเป็นตัวพิมพ์เล็กเพื่อค้นหาง่ายขึ้น
+  const queryText = (searchParams.get('q') || '').toLowerCase();
   
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('all'); // State สำหรับ Tab Filter
+  const [filter, setFilter] = useState('all');
 
-  // 1. Fetch Posts (ดึงมาทั้งหมดทีเดียว แล้วค่อย Filter ในเครื่อง)
+  // Fetch Posts
   useEffect(() => {
     const fetchPosts = async () => {
       setLoading(true);
       const { data, error } = await supabase
         .from('posts')
-        .select(`*, categories (name, slug)`) // ดึงชื่อหมวดหมู่มาด้วย
+        .select(`*, categories (name, slug)`)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -128,21 +129,19 @@ export default function HomePage() {
     fetchPosts();
   }, []); 
 
-  // 2. Logic การกรองข้อมูล (Filter Logic)
+  // Filter Logic (Tabs + Search Text)
   const filteredPosts = posts.filter(post => {
-    // เงื่อนไข A: ต้องตรงกับ Tab ที่เลือก (Workout/Read/Code/All)
+    // 1. Check Tab
     const catSlug = post.categories?.slug || '';
     const matchesTab = filter === 'all' || catSlug.includes(filter);
 
-    // เงื่อนไข B: ต้องตรงกับคำค้นหา (ถ้ามี)
-    // ค้นหาใน: Title OR Excerpt OR Category Name
+    // 2. Check Search Text (Title, Excerpt, Category Name)
     const catName = post.categories?.name || '';
     const matchesSearch = queryText === '' || 
                           post.title.toLowerCase().includes(queryText) || 
                           (post.excerpt || '').toLowerCase().includes(queryText) ||
                           catName.toLowerCase().includes(queryText);
 
-    // ต้องผ่านทั้ง A และ B ถึงจะแสดงผล
     return matchesTab && matchesSearch;
   });
 
@@ -180,9 +179,9 @@ export default function HomePage() {
             <div className="inline-flex flex-wrap justify-center gap-1 p-1.5 bg-white rounded-full shadow-sm border border-stone-100">
               {[
                 { id: 'all', label: 'All Stories' },
-                { id: 'calisthenics', label: 'Workout' }, // ⚠️ เช็ค slug ให้ตรง DB
-                { id: 'read', label: 'Library' },         // ⚠️ เช็ค slug ให้ตรง DB
-                { id: 'code', label: 'Programming' }      // ⚠️ เช็ค slug ให้ตรง DB
+                { id: 'calisthenics', label: 'Workout' }, 
+                { id: 'read', label: 'Library' },         
+                { id: 'code', label: 'Programming' }      
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -205,7 +204,7 @@ export default function HomePage() {
       {/* --- CONTENT GRID --- */}
       <main className="max-w-6xl mx-auto px-4 pb-24">
         
-        {/* Search Result Header (แสดงเมื่อมีการพิมพ์ค้นหา) */}
+        {/* Search Result Header */}
         {queryText && !loading && (
            <div className="mb-8 text-center animate-in fade-in slide-in-from-bottom-2">
              <h2 className="text-xl font-bold text-stone-800">
@@ -221,13 +220,11 @@ export default function HomePage() {
         )}
 
         {loading ? (
-          // Loading State
           <div className="flex flex-col items-center justify-center py-20 text-stone-400 gap-3">
             <Loader2 size={40} className="animate-spin text-[#C5A059]" />
             <p>Loading inspiration...</p>
           </div>
         ) : (
-          // Post Grid
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-10">
             {filteredPosts.map((post) => (
               <PostCard key={post.id} post={post} />
@@ -235,7 +232,7 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* Empty State (ไม่เจอข้อมูล) */}
+        {/* Empty State */}
         {!loading && filteredPosts.length === 0 && (
           <div className="text-center py-20 opacity-50 border-2 border-dashed border-stone-200 rounded-3xl mx-auto max-w-lg">
             <p className="text-stone-400">
@@ -247,12 +244,24 @@ export default function HomePage() {
         )}
       </main>
 
-      {/* --- FOOTER --- */}
       <footer className="py-12 text-center border-t border-stone-200 mx-8">
         <p className="text-stone-400 text-sm font-medium">
           © {new Date().getFullYear()} Scale & Skill. Body & Mind Development.
         </p>
       </footer>
     </div>
+  );
+};
+
+// --- 3. EXPORT DEFAULT (Wrapped in Suspense) ---
+export default function HomePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-[#FAFAF9]">
+        <Loader2 size={40} className="animate-spin text-[#C5A059]" />
+      </div>
+    }>
+      <HomeContent />
+    </Suspense>
   );
 }
