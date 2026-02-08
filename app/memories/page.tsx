@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { createClient } from '@/libs/supabase';
 import { Loader2, X, Calendar, ZoomIn } from 'lucide-react';
-import PinLock from '@/app/components/PinLock'; // 👈 1. Import PinLock เข้ามา
 
 // Type Definition
 interface GalleryItem {
@@ -17,34 +16,16 @@ interface GalleryItem {
 export default function GalleryPage() {
   const supabase = createClient();
   
-  // States เดิม
+  // States
   const [items, setItems] = useState<GalleryItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedImage, setSelectedImage] = useState<GalleryItem | null>(null);
+  const [selectedImage, setSelectedImage] = useState<GalleryItem | null>(null); // สำหรับ Lightbox
 
-  // 🔐 2. เพิ่ม State สำหรับล็อคหน้าจอ
-  const [isUnlocked, setIsUnlocked] = useState(false);
-
-  // 🔐 3. เช็ค Session ว่าเคยใส่รหัสไปหรือยัง (จะได้ไม่ต้องใส่บ่อยๆ)
+  // 1. Fetch Data
   useEffect(() => {
-    const unlocked = sessionStorage.getItem('gallery_unlocked');
-    if (unlocked === 'true') {
-      setIsUnlocked(true);
-    }
-  }, []);
-
-  // 🔐 4. ฟังก์ชันปลดล็อค
-  const handleUnlock = () => {
-    setIsUnlocked(true);
-    sessionStorage.setItem('gallery_unlocked', 'true'); // จำค่าไว้จนกว่าจะปิด Browser
-  };
-
-  // 1. Fetch Data (ย้ายมาไว้หลัง logic ปลดล็อค เพื่อไม่ให้โหลดข้อมูลถ้ายังไม่ใส่รหัส)
-  useEffect(() => {
-    if (!isUnlocked) return; // ถ้ายังไม่ปลดล็อค ไม่ต้องโหลดรูป
-
     const fetchGallery = async () => {
       setLoading(true);
+      // ดึงรูปทั้งหมด เรียงจากใหม่ไปเก่า
       const { data, error } = await supabase
         .from('gallery')
         .select('*')
@@ -57,9 +38,9 @@ export default function GalleryPage() {
     };
 
     fetchGallery();
-  }, [isUnlocked]); // โหลดเมื่อ isUnlocked เปลี่ยนเป็น true
+  }, []);
 
-  // Handle ESC key
+  // ฟังก์ชันปิด Lightbox เมื่อกดปุ่ม ESC
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setSelectedImage(null);
@@ -68,16 +49,12 @@ export default function GalleryPage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // ⛔️ 5. ถ้ายังไม่ปลดล็อค ให้โชว์หน้าใส่รหัส
-  if (!isUnlocked) {
-    return <PinLock onUnlock={handleUnlock} />;
-  }
-
-  // ✅ ถ้าปลดล็อคแล้ว โชว์เนื้อหา Gallery ปกติ
   return (
     <div className="min-h-screen bg-[#F5F5F4] font-sans selection:bg-[#C5A059]/30">
       
-      {/* Header Section */}
+   
+
+      {/* 2. Header Section */}
       <div className="pt-32 pb-12 px-6 text-center">
         <h1 className="text-4xl md:text-5xl font-black text-stone-800 tracking-tight mb-4 uppercase">
           Our <span className="text-[#C5A059]">Memories</span>
@@ -88,7 +65,7 @@ export default function GalleryPage() {
         </p>
       </div>
 
-      {/* Main Content */}
+      {/* 3. Main Content */}
       <div className="max-w-7xl mx-auto px-4 pb-20">
         
         {loading ? (
@@ -101,7 +78,7 @@ export default function GalleryPage() {
             No photos yet. Stay tuned! 📸
           </div>
         ) : (
-          /* Masonry Layout */
+          /* Masonry Layout (Pinterest Style) */
           <div className="columns-1 sm:columns-2 md:columns-3 lg:columns-4 gap-4 space-y-4">
             {items.map((item) => (
               <div 
@@ -109,6 +86,7 @@ export default function GalleryPage() {
                 className="break-inside-avoid relative group cursor-zoom-in rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-500 bg-white border border-stone-100 mb-4"
                 onClick={() => setSelectedImage(item)}
               >
+                {/* Image */}
                 <Image
                   src={item.image_url}
                   alt={item.caption || 'Gallery Image'}
@@ -119,6 +97,7 @@ export default function GalleryPage() {
                   loading="lazy"
                 />
 
+                {/* Overlay on Hover (แสดงวันที่ & Caption) */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-6">
                   <div className="transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
                     <div className="flex items-center gap-2 text-[#C5A059] text-xs font-bold uppercase tracking-wider mb-2">
@@ -135,6 +114,7 @@ export default function GalleryPage() {
                   </div>
                 </div>
 
+                {/* Zoom Icon Hint */}
                 <div className="absolute top-4 right-4 bg-white/20 backdrop-blur-md p-2 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                   <ZoomIn size={16} />
                 </div>
@@ -144,12 +124,13 @@ export default function GalleryPage() {
         )}
       </div>
 
-      {/* Lightbox Modal */}
+      {/* 4. Lightbox Modal (Full Screen) */}
       {selectedImage && (
         <div 
           className="fixed inset-0 z-[60] bg-stone-900/95 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200"
-          onClick={() => setSelectedImage(null)}
+          onClick={() => setSelectedImage(null)} // กดพื้นหลังปิด
         >
+          {/* Close Button */}
           <button 
             className="absolute top-6 right-6 text-white/50 hover:text-white hover:bg-white/10 p-2 rounded-full transition-all"
             onClick={() => setSelectedImage(null)}
@@ -159,8 +140,9 @@ export default function GalleryPage() {
 
           <div 
             className="relative max-w-5xl w-full max-h-[90vh] flex flex-col items-center"
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()} // กดที่รูปไม่ปิด
           >
+            {/* Full Image */}
             <div className="relative w-full h-[70vh] md:h-[80vh]">
               <Image
                 src={selectedImage.image_url}
@@ -171,6 +153,7 @@ export default function GalleryPage() {
               />
             </div>
 
+            {/* Caption Details */}
             <div className="mt-6 text-center max-w-2xl">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-[#C5A059] text-xs font-bold uppercase tracking-wider mb-3">
                 <Calendar size={12} />
