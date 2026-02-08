@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+// 👇 1. เพิ่ม useEffect เข้ามา
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation'; // เพิ่ม router
-import { createClient } from '@/libs/supabase'; // เพิ่ม supabase client
-import { Mail, Lock, Eye, EyeOff, ArrowLeft, Loader2, AlertCircle } from 'lucide-react'; // เพิ่ม icon
+import { useRouter } from 'next/navigation';
+import { createClient } from '@/libs/supabase';
+import { Mail, Lock, Eye, EyeOff, ArrowLeft, Loader2, AlertCircle } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -16,6 +17,29 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  
+  // 👇 2. เพิ่ม State สำหรับเช็ค Session เริ่มต้น (กันหน้าเว็บกระพริบ)
+  const [checkingSession, setCheckingSession] = useState(true);
+
+  // 👇 3. เพิ่ม useEffect เพื่อเช็คว่า Login อยู่แล้วหรือยัง?
+  useEffect(() => {
+    const checkUserSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        // ถ้ามี Session อยู่แล้ว ให้ดีดไปหน้า Dashboard เลย
+        if (session) {
+          router.replace('/admin/dashboard'); // ใช้ replace เพื่อไม่ให้กด Back กลับมาหน้า Login ได้
+        } else {
+          setCheckingSession(false); // ถ้ายังไม่ Login ให้แสดงฟอร์ม
+        }
+      } catch (error) {
+        setCheckingSession(false);
+      }
+    };
+
+    checkUserSession();
+  }, [router, supabase]);
 
   // --- Login Logic ---
   const handleLogin = async (e: React.FormEvent) => {
@@ -34,8 +58,9 @@ export default function LoginPage() {
       }
 
       // Login สำเร็จ -> ไปหน้า Admin
-      router.push('/admin/create');
-      router.refresh(); // รีเฟรชเพื่อให้ Server Component รู้ว่า Login แล้ว
+      // 👇 แนะนำให้ไป dashboard ก่อนครับ
+      router.push('/admin/dashboard'); 
+      router.refresh(); 
 
     } catch (err: any) {
       setErrorMsg(err.message || 'Login failed. Please check your credentials.');
@@ -44,10 +69,19 @@ export default function LoginPage() {
     }
   };
 
+  // 👇 4. ถ้ากำลังเช็ค Session อยู่ ให้โชว์หน้าโหลดเปล่าๆ หรือ Loading Spinner
+  if (checkingSession) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#FAFAF9]">
+        <Loader2 className="animate-spin text-[#C5A059]" size={48} />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex bg-[#FAFAF9] font-sans selection:bg-[#C5A059]/30">
       
-      {/* --- LEFT SIDE: BRAND VISUAL (เหมือนเดิม) --- */}
+      {/* --- LEFT SIDE: BRAND VISUAL --- */}
       <div className="hidden md:flex w-1/2 bg-stone-900 relative overflow-hidden flex-col justify-between p-12 text-white">
         <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]"></div>
         <div className="absolute top-0 right-0 w-96 h-96 bg-[#C5A059] rounded-full blur-[150px] opacity-20 -translate-y-1/2 translate-x-1/2"></div>
@@ -67,7 +101,7 @@ export default function LoginPage() {
         </div>
 
         <div className="relative z-10 text-stone-500 text-xs">
-          © 2024 Scale & Skill. All rights reserved.
+          © {new Date().getFullYear()} Family JS. All rights reserved.
         </div>
       </div>
 
@@ -120,9 +154,6 @@ export default function LoginPage() {
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label htmlFor="password" className="block text-xs font-bold text-stone-600 uppercase">Password</label>
-                {/* <div className="text-sm">
-                  <a href="#" className="font-medium text-[#C5A059] hover:text-[#a08246]">Forgot password?</a>
-                </div> */}
               </div>
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
