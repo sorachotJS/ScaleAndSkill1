@@ -4,14 +4,12 @@ import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/libs/supabase';
-import { BookOpen, Dumbbell, Star, ChevronRight, Terminal, Clock, Loader2 } from 'lucide-react';
+import { BookOpen, Dumbbell, Star, ChevronRight, Terminal, Clock, Loader2, LayoutGrid } from 'lucide-react';
 
 // --- 1. POST CARD COMPONENT ---
-// แสดงผลการ์ดแต่ละใบ โดยเปลี่ยน icon ตามหมวดหมู่
 const PostCard = ({ post }: { post: any }) => {
   const categorySlug = post.categories?.slug || '';
   
-  // เช็คประเภทเพื่อเลือก icon/สี
   const isWorkout = categorySlug.includes('workout') || categorySlug.includes('calisthenics') || categorySlug.includes('fit');
   const isCode = categorySlug.includes('code') || categorySlug.includes('dev') || categorySlug.includes('program');
   const isBook = categorySlug.includes('book') || categorySlug.includes('read');
@@ -20,7 +18,6 @@ const PostCard = ({ post }: { post: any }) => {
     <Link href={`/blog/${post.slug}`} className="block h-full">
       <div className="group relative bg-white rounded-[2rem] p-3 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-all duration-500 hover:-translate-y-2 cursor-pointer h-full flex flex-col">
         
-        {/* Image Cover */}
         <div className="relative h-64 overflow-hidden rounded-[1.5rem] flex-shrink-0 bg-stone-100">
           {post.cover_image ? (
             <img 
@@ -29,10 +26,9 @@ const PostCard = ({ post }: { post: any }) => {
               className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-stone-300">No Image</div>
+            <div className="w-full h-full flex items-center justify-center text-stone-300 font-medium">No Cover Image</div>
           )}
           
-          {/* Badge มุมขวาบน */}
           <div className="absolute top-4 right-4 bg-white/95 backdrop-blur-sm px-3 py-1.5 rounded-full text-xs font-bold shadow-sm z-10">
             {isWorkout && <span className="text-rose-500 flex items-center gap-1"><Dumbbell size={12}/> Workout</span>}
             {isCode && <span className="text-indigo-600 flex items-center gap-1"><Terminal size={12}/> Programming</span>}
@@ -41,9 +37,7 @@ const PostCard = ({ post }: { post: any }) => {
           </div>
         </div>
 
-        {/* Content Body */}
         <div className="p-4 pt-5 flex flex-col flex-grow">
-          {/* Meta Top: Date | Difficulty */}
           <div className="flex items-center gap-2 mb-3">
             <span className="text-[10px] font-bold tracking-wider uppercase text-stone-400">
               {new Date(post.created_at).toLocaleDateString('en-GB')}
@@ -62,10 +56,8 @@ const PostCard = ({ post }: { post: any }) => {
             {post.excerpt}
           </p>
 
-          {/* Bottom Meta & Arrow */}
           <div className="flex items-center justify-between border-t border-stone-50 pt-4 mt-auto">
             <div className="flex items-center gap-2">
-              {/* แสดงข้อมูลเฉพาะตามหมวดหมู่ */}
               {post.meta_data?.duration && (
                 <span className="bg-rose-50 text-rose-600 px-2 py-1 rounded-lg text-xs font-semibold flex items-center gap-1">
                   <Clock size={12} /> {post.meta_data.duration}
@@ -97,23 +89,31 @@ const PostCard = ({ post }: { post: any }) => {
 };
 
 // --- 2. HOME CONTENT LOGIC ---
-// แยกส่วน Logic ออกมาเพื่อห่อด้วย Suspense
 const HomeContent = () => {
   const supabase = createClient();
-  
-  // รับค่า Search Query จาก URL (Case Insensitive)
   const searchParams = useSearchParams();
   const queryText = (searchParams.get('q') || '').toLowerCase();
   
   const [posts, setPosts] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]); // สำหรับเก็บหมวดหมู่จาก Supabase
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
 
-  // Fetch Posts
+  // Fetch Categories & Posts
   useEffect(() => {
-    const fetchPosts = async () => {
+    const fetchData = async () => {
       setLoading(true);
-      const { data, error } = await supabase
+      
+      // 1. ดึงข้อมูลหมวดหมู่
+      const { data: catData } = await supabase
+        .from('categories')
+        .select('id, name, slug')
+        .order('name');
+      
+      setCategories(catData || []);
+
+      // 2. ดึงข้อมูลโพสต์
+      const { data: postData, error } = await supabase
         .from('posts')
         .select(`*, categories (name, slug)`)
         .order('created_at', { ascending: false });
@@ -121,21 +121,20 @@ const HomeContent = () => {
       if (error) {
         console.error('Error fetching posts:', error);
       } else {
-        setPosts(data || []);
+        setPosts(postData || []);
       }
+      
       setLoading(false);
     };
 
-    fetchPosts();
-  }, []); 
+    fetchData();
+  }, [supabase]); 
 
-  // Filter Logic (Tabs + Search Text)
+  // Filter Logic
   const filteredPosts = posts.filter(post => {
-    // 1. Check Tab
     const catSlug = post.categories?.slug || '';
-    const matchesTab = filter === 'all' || catSlug.includes(filter);
+    const matchesTab = filter === 'all' || catSlug === filter;
 
-    // 2. Check Search Text (Title, Excerpt, Category Name)
     const catName = post.categories?.name || '';
     const matchesSearch = queryText === '' || 
                           post.title.toLowerCase().includes(queryText) || 
@@ -157,7 +156,7 @@ const HomeContent = () => {
           </div>
 
           <h1 className="text-5xl md:text-7xl font-extrabold text-stone-900 mb-8 tracking-tight leading-[1.1] uppercase animate-in fade-in slide-in-from-bottom-5 duration-700 delay-100">
-            BODY  <span className="text-[#C5A059]">&</span> MIND MASTERY
+            BODY <span className="text-[#C5A059]">&</span> MIND MASTERY
           </h1>
 
           <div className="mb-10 flex flex-col gap-3 items-center justify-center animate-in fade-in slide-in-from-bottom-6 duration-700 delay-200">
@@ -170,30 +169,34 @@ const HomeContent = () => {
           </div>
 
           <p className="text-lg text-stone-500 max-w-xl mx-auto mb-10 font-light leading-relaxed animate-in fade-in slide-in-from-bottom-7 duration-700 delay-300">
-            "วิถีแห่งผู้ชนะไม่ได้วัดกันที่ความเร็ว  <br className="hidden md:block"/>
+            "วิถีแห่งผู้ชนะไม่ได้วัดกันที่ความเร็ว <br className="hidden md:block"/>
             แต่คือความมั่นคงของ <span className="font-medium text-stone-700"> จิตใจ </span> และ <span className="font-medium text-stone-700"> พละกำลัง </span> ที่ผ่านการฝึกฝนอย่างประณีต"
           </p>
           
-          {/* Filter Tabs */}
-          <div className="flex justify-center animate-in fade-in zoom-in duration-500 delay-500">
-            <div className="inline-flex flex-wrap justify-center gap-1 p-1.5 bg-white rounded-full shadow-sm border border-stone-100">
-              {[
-                { id: 'all', label: 'All Stories' },
-                { id: 'calisthenics', label: 'Workout' }, 
-                { id: 'read', label: 'Library' },         
-                { id: 'code', label: 'Programming' }      
-              ].map((tab) => (
+          {/* Dynamic Filter Tabs */}
+          <div className="flex justify-center animate-in fade-in zoom-in duration-500 delay-500 overflow-x-auto pb-4 no-scrollbar">
+            <div className="inline-flex gap-1 p-1.5 bg-white rounded-full shadow-sm border border-stone-100 min-w-max">
+              <button
+                onClick={() => setFilter('all')}
+                className={`px-6 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 flex items-center gap-2 ${
+                  filter === 'all' ? 'bg-stone-900 text-white shadow-md' : 'text-stone-400 hover:text-stone-600'
+                }`}
+              >
+                <LayoutGrid size={14} /> All Stories
+              </button>
+
+              {categories.map((cat) => (
                 <button
-                  key={tab.id}
-                  onClick={() => setFilter(tab.id)}
+                  key={cat.id}
+                  onClick={() => setFilter(cat.slug)}
                   className={`
-                    px-6 py-2.5 rounded-full text-sm font-semibold transition-all duration-300
-                    ${filter === tab.id 
+                    px-6 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 whitespace-nowrap
+                    ${filter === cat.slug 
                       ? 'bg-stone-900 text-white shadow-md' 
                       : 'text-stone-400 hover:text-stone-600 hover:bg-stone-50'}
                   `}
                 >
-                  {tab.label}
+                  {cat.name}
                 </button>
               ))}
             </div>
@@ -204,7 +207,6 @@ const HomeContent = () => {
       {/* --- CONTENT GRID --- */}
       <main className="max-w-6xl mx-auto px-4 pb-24">
         
-        {/* Search Result Header */}
         {queryText && !loading && (
            <div className="mb-8 text-center animate-in fade-in slide-in-from-bottom-2">
              <h2 className="text-xl font-bold text-stone-800">
@@ -222,7 +224,7 @@ const HomeContent = () => {
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20 text-stone-400 gap-3">
             <Loader2 size={40} className="animate-spin text-[#C5A059]" />
-            <p>Loading inspiration...</p>
+            <p className="font-medium tracking-wide">Syncing with Family JS Database...</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-10">
@@ -232,28 +234,31 @@ const HomeContent = () => {
           </div>
         )}
 
-        {/* Empty State */}
         {!loading && filteredPosts.length === 0 && (
-          <div className="text-center py-20 opacity-50 border-2 border-dashed border-stone-200 rounded-3xl mx-auto max-w-lg">
-            <p className="text-stone-400">
+          <div className="text-center py-24 border-2 border-dashed border-stone-200 rounded-[3rem] mx-auto max-w-lg bg-white/50 backdrop-blur-sm">
+            <div className="w-16 h-16 bg-stone-100 rounded-full flex items-center justify-center mx-auto mb-4 text-stone-300">
+                <LayoutGrid size={24} />
+            </div>
+            <p className="text-stone-500 font-medium px-6 leading-relaxed">
               {queryText 
-                ? `No stories found matching "${queryText}".` 
-                : "No stories found in this category yet."}
+                ? `The hunter's search for "${queryText}" yielded no results. Try another keyword.` 
+                : "This chapter is yet to be written. Please check back later."}
             </p>
           </div>
         )}
       </main>
 
       <footer className="py-12 text-center border-t border-stone-200 mx-8">
-        <p className="text-stone-400 text-sm font-medium">
-          © {new Date().getFullYear()} Family JS. Body & Mind Development.
+        <p className="text-stone-400 text-sm font-medium tracking-wide">
+          © {new Date().getFullYear()} Family JS. <br className="md:hidden"/>
+          Body & Mind Development.
         </p>
       </footer>
     </div>
   );
 };
 
-// --- 3. EXPORT DEFAULT (Wrapped in Suspense) ---
+// --- 3. EXPORT DEFAULT ---
 export default function HomePage() {
   return (
     <Suspense fallback={
