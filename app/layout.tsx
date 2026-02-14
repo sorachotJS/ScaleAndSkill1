@@ -4,7 +4,7 @@ import type { Metadata } from 'next';
 import { Navbar } from '@/app/components/Navbar'; // Import มาใช้
 
 export const metadata: Metadata = {
-  title: 'Scale & Skill',
+  title: 'Family JS',
   description: 'Body & Mind Development',
   // ✨ เพิ่มส่วนนี้เข้าไปครับ ✨
   icons: {
