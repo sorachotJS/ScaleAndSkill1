@@ -91,7 +91,7 @@ export function Navbar() {
               <div className="flex items-center gap-3 group cursor-pointer pl-2"> 
                 <div className="relative w-[3.25rem] h-[3.25rem] shadow-lg shadow-[#C5A059]/20 rounded-full overflow-hidden transform group-hover:scale-110 transition-all duration-300 bg-white">
                   <Image
-                    src="/images/logo.png"
+                    src="/images/logo1.png"
                     alt="Logo"
                     fill
                     className="object-cover"
@@ -127,11 +127,11 @@ export function Navbar() {
           <NavLink href="/memories" current={pathname}>Gallery</NavLink>
           
           {/* 👇 เพิ่มเมนู Wallet */}
-          <NavLink href="/money" current={pathname}>
+          {/* <NavLink href="/money" current={pathname}>
              <span className="flex items-center gap-1">
                <Wallet size={16} className="opacity-80" /> Wallet
              </span>
-          </NavLink>
+          </NavLink> */}
         </div>
 
         {/* === DESKTOP ACTIONS === */}

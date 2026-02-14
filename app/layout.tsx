@@ -8,8 +8,8 @@ export const metadata: Metadata = {
   description: 'Body & Mind Development',
   // ✨ เพิ่มส่วนนี้เข้าไปครับ ✨
   icons: {
-    icon: '/images/logo.png', // ใส่ path รูปโลโก้จระเข้ของคุณ
-    apple: '/images/logo.png', // สำหรับไอคอนบน iPhone/iPad
+    icon: '/images/logo1.png', // ใส่ path รูปโลโก้จระเข้ของคุณ
+    apple: '/images/logo1.png', // สำหรับไอคอนบน iPhone/iPad
   },
 };
 

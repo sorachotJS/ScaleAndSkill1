@@ -153,25 +153,25 @@ const HomeContent = () => {
         <div className="max-w-4xl mx-auto text-center">
           
           <div className="inline-block mb-6 px-4 py-1.5 rounded-full bg-white border border-[#C5A059]/20 shadow-sm text-xs font-bold text-[#C5A059] tracking-widest uppercase animate-in fade-in slide-in-from-bottom-4 duration-700">
-              Scale & Skill
+              JS Family Blog
           </div>
 
           <h1 className="text-5xl md:text-7xl font-extrabold text-stone-900 mb-8 tracking-tight leading-[1.1] uppercase animate-in fade-in slide-in-from-bottom-5 duration-700 delay-100">
-            Scale <span className="text-[#C5A059]">&</span> Skill
+            BODY  <span className="text-[#C5A059]">&</span> MIND MASTERY
           </h1>
 
           <div className="mb-10 flex flex-col gap-3 items-center justify-center animate-in fade-in slide-in-from-bottom-6 duration-700 delay-200">
             <h2 className="text-xl md:text-3xl font-medium text-stone-600 font-serif tracking-wide italic">
-              "นิ่ง... เพื่อลับคมความคิด"
+              "สงบ... เพื่อมองเห็นโอกาส"
             </h2>
             <h2 className="text-xl md:text-3xl font-black text-[#C5A059] uppercase tracking-wider drop-shadow-sm">
-              "แกร่ง... เพื่อพิชิตขีดจำกัด"
+              "ทรงพลัง... เพื่อคว้าชัยชนะ"
             </h2>
           </div>
 
           <p className="text-lg text-stone-500 max-w-xl mx-auto mb-10 font-light leading-relaxed animate-in fade-in slide-in-from-bottom-7 duration-700 delay-300">
-            "ดุจดังนักล่าที่ซ่อนกายในสายน้ำ... <br className="hidden md:block"/>
-            รอจังหวะด้วย<span className="font-medium text-stone-700"> ปัญญา </span> และจู่โจมด้วย<span className="font-medium text-stone-700"> พละกำลัง</span>"
+            "วิถีแห่งผู้ชนะไม่ได้วัดกันที่ความเร็ว  <br className="hidden md:block"/>
+            แต่คือความมั่นคงของ <span className="font-medium text-stone-700"> จิตใจ </span> และ <span className="font-medium text-stone-700"> พละกำลัง </span> ที่ผ่านการฝึกฝนอย่างประณีต"
           </p>
           
           {/* Filter Tabs */}
