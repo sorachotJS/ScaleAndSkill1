@@ -100,7 +100,7 @@ export function Navbar() {
               </div>
               <div className="flex flex-col">
                 <span className={`text-lg font-extrabold tracking-tight leading-none uppercase font-sans ${scrolled || isMobileMenuOpen ? 'text-stone-800' : 'text-stone-800'}`}>
-                  Scale & Skill
+                  Family JS
                 </span>
                 <span className="text-[0.6rem] font-bold text-[#C5A059] tracking-widest uppercase leading-tight">
                   Body & Mind Dev.
